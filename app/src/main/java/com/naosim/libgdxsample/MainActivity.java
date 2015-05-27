@@ -1,6 +1,8 @@
 package com.naosim.libgdxsample;
 
 import android.os.Bundle;
+import android.util.Log;
+import android.view.ViewGroup;
 
 import com.badlogic.gdx.ApplicationListener;
 import com.badlogic.gdx.Gdx;
@@ -18,15 +20,21 @@ public class MainActivity extends AndroidApplication {
     @Override
     public void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
-        AndroidApplicationConfiguration cfg = new AndroidApplicationConfiguration();
 
-        initialize(new MyGdxApp(), cfg);
+        setContentView(R.layout.activity_main);
+        AndroidApplicationConfiguration cfg = new AndroidApplicationConfiguration();
+        ((ViewGroup)findViewById(R.id.gameContainer)).addView(initializeForView(new MyGdxApp(), cfg));
     }
 
     class MyGdxApp implements ApplicationListener {
 
+        private static final int NUM_OF_CIRCLE = 20;
+        private final Axis2D DISPLAY_CENTER = new Axis2D(480 / 2, 900 / 2);
+        private final float GRAVITY = 0.8f;
+        private final long CREATE_INTERVAL = 30;
+        private final long COMMIT_FRAME = NUM_OF_CIRCLE * CREATE_INTERVAL + 100;
+
         ShapeRenderer shapeRenderer;
-        CircleStamp circleStamp;
         Random random = new Random();
 
         private EntityModel[] entityModels;
@@ -35,28 +43,35 @@ public class MainActivity extends AndroidApplication {
         public void create() {
             shapeRenderer = new ShapeRenderer();
 
-            entityModels = new EntityModel[4];
-            {
-                int i = 0;
+            entityModels = new EntityModel[NUM_OF_CIRCLE];
+            for(int i = 0; i < entityModels.length; i++) {
                 entityModels[i] = new EntityModel();
-                entityModels[i].targetScale.set(0.5f, 0.5f);
-                entityModels[i].targetPosition.set(200, 200);
-
-                i++;
-                entityModels[i] = new EntityModel();
-                entityModels[i].targetScale.set(0.4f, 0.4f);
-                entityModels[i].targetPosition.set(200, 380);
-
-                i++;
-                entityModels[i] = new EntityModel();
-                entityModels[i].targetScale.set(0.3f, 0.3f);
-                entityModels[i].targetPosition.set(360, 200);
-
-                i++;
-                entityModels[i] = new EntityModel();
-                entityModels[i].targetScale.set(0.2f, 0.2f);
-                entityModels[i].targetPosition.set(100, 100);
+                float scale = random.nextFloat() / 2 + 0.1f;
+                float x = random.nextFloat()* 320 + 80;
+                entityModels[i].targetScale.set(scale, scale);
+                entityModels[i].targetPosition.set(x, i % 2 == 0 ? 900 : -entityModels[i].getRadius());
             }
+//            {
+//                int i = 0;
+//                entityModels[i] = new EntityModel();
+//                entityModels[i].targetScale.set(0.5f, 0.5f);
+//                entityModels[i].targetPosition.set(200, 200);
+//
+//                i++;
+//                entityModels[i] = new EntityModel();
+//                entityModels[i].targetScale.set(0.4f, 0.4f);
+//                entityModels[i].targetPosition.set(200, 380);
+//
+//                i++;
+//                entityModels[i] = new EntityModel();
+//                entityModels[i].targetScale.set(0.3f, 0.3f);
+//                entityModels[i].targetPosition.set(360, 200);
+//
+//                i++;
+//                entityModels[i] = new EntityModel();
+//                entityModels[i].targetScale.set(0.2f, 0.2f);
+//                entityModels[i].targetPosition.set(100, 100);
+//            }
 
             float x = 0;
             for(EntityModel em : entityModels) {
@@ -92,7 +107,8 @@ public class MainActivity extends AndroidApplication {
         private void adoptToEntity(EntityModel em, CircleStamp m) {
             m.setCenterX(em.physics.position.getX());
             m.setCenterY(em.physics.position.getY());
-            m.setScale(em.scale.getX(), em.scale.getY());
+//            m.setScale(em.scale.getX(), em.scale.getY());
+            m.setScale(em.targetScale.getX(), em.targetScale.getY());
         }
 
         @Override
@@ -103,6 +119,7 @@ public class MainActivity extends AndroidApplication {
         public void pause() {
         }
 
+        long timeFrame = 0;
         @Override
         public void render() {
             // 赤で塗りつぶす
@@ -112,14 +129,81 @@ public class MainActivity extends AndroidApplication {
 
             Gdx.gl.glEnable(GL20.GL_BLEND);
             Gdx.gl.glBlendFunc(GL20.GL_SRC_ALPHA, GL20.GL_ONE_MINUS_SRC_ALPHA);
-            int i = 0;
-            for(EntityModel em : entityModels) {
+
+            if(timeFrame > COMMIT_FRAME) {
+                for(int i = 0; i < entityModels.length; i++) {
+                    EntityModel em = entityModels[i];
+                    if(!em.visible) continue;
+                    adoptToEntity(em, entities[i]);
+                    entities[i].draw(shapeRenderer);
+                }
+                Gdx.gl.glDisable(GL20.GL_BLEND);
+                return;
+            }
+
+
+            for(int i = 0; i < entityModels.length; i++) {
+                EntityModel em = entityModels[i];
+                em.visible = (timeFrame > i * CREATE_INTERVAL);
+                if(!em.visible) continue;
+                em.physics.accel.set(DISPLAY_CENTER.diff(em.physics.position).unit().scale(GRAVITY));// 重力
+                // 下
+//                if(em.physics.position.getY() - em.getRadius() < 0) {
+//                    em.physics.velocity.inverseY();
+//                    em.physics.velocity.setY(Math.abs(em.physics.velocity.getY()) * 0.9f);
+//                    em.physics.position.setY(em.getRadius());
+//                }
+
+                if(em.physics.position.getX() - em.getRadius() < 0) {
+                    em.physics.velocity.setX(Math.abs(em.physics.velocity.getX()) * 0.6f);
+                    em.physics.position.setX(em.getRadius());
+                }
+                float width = 480;
+                if(em.physics.position.getX()+ em.getRadius() > width) {
+                    em.physics.velocity.setX(Math.abs(em.physics.velocity.getX()) * -0.6f);
+                    em.physics.position.setX(width - em.getRadius());
+                }
+            }
+
+            for(int i = 0; i < entityModels.length; i++) {
+                EntityModel em1 = entityModels[i];
+                if(!em1.visible) continue;
+                for(int j = i + 1; j < entityModels.length; j++) {
+                    EntityModel em2 = entityModels[j];
+                    if(!em2.visible) continue;
+                    if(em1.isHit(em2)) {
+                        Log.e("HIT", "HIT");
+                        Axis2D unitEm2ToEm1 = em1.physics.position.diff(em2.physics.position).unit();
+                        em1.physics.accel.add(unitEm2ToEm1.scale(1.3f * (float)Math.pow(em2.getRadius() / em1.getRadius(), 2)));
+                        em2.physics.accel.add(unitEm2ToEm1.scale(-1.3f * (float)Math.pow(em1.getRadius() / em2.getRadius(), 2)));
+                    }
+                }
+            }
+
+            for(int i = 0; i < entityModels.length; i++) {
+                EntityModel em = entityModels[i];
+                if(!em.visible) continue;
                 em.step();
                 adoptToEntity(em, entities[i]);
                 entities[i].draw(shapeRenderer);
-                i++;
             }
+
+            int i = 0;
+
+
+
+//            for(EntityModel em : entityModels) {
+//                if(i * 10 < timeFrame) {
+//                    em.step();
+//                    adoptToEntity(em, entities[i]);
+//                    entities[i].draw(shapeRenderer);
+//                }
+//
+//                i++;
+//            }
             Gdx.gl.glDisable(GL20.GL_BLEND);
+
+            timeFrame++;
         }
 
         @Override
@@ -151,12 +235,12 @@ public class MainActivity extends AndroidApplication {
         public void draw(ShapeRenderer shapeRenderer) {
             shapeRenderer.begin(ShapeRenderer.ShapeType.Filled);
             shapeRenderer.setColor(cr, cg, cb, 0.5f);
-            shapeRenderer.circle(x, y, r * scale + 1);
+            shapeRenderer.circle(x, y, r * scale - 4);
             shapeRenderer.end();
 
             shapeRenderer.begin(ShapeRenderer.ShapeType.Filled);
             shapeRenderer.setColor(cr, cg, cb, 1f);
-            shapeRenderer.circle(x, y, r * scale);
+            shapeRenderer.circle(x, y, r * scale - 5);
             shapeRenderer.end();
         }
 

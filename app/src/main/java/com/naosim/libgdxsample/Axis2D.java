@@ -27,6 +27,10 @@ public class Axis2D {
     void inverseX() { this.x = -x; }
     void inverseY() { this.y = -y; }
 
+    public Axis2D unit() {
+        return this.scale(1.0f / abs());
+    }
+
 
     public void add(Axis2D addValue) {
         set(getX() + addValue.getX(), getY() + addValue.getY());

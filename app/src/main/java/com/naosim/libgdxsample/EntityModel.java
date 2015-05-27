@@ -11,19 +11,34 @@ public class EntityModel {
     public float alpha = 1;
 
     public void step() {
-        Axis2D diffPosition = targetPosition.diff(physics.position);
-        Axis2D forceToTarget = diffPosition.scale(0.1f);
-        Axis2D forceResistance = physics.velocity.scale(0.07f);
-        physics.accel.set(forceToTarget.diff(forceResistance));
-
-        // 0 -> targetScale
-        // r -> 0.5
-        float diff = diffPosition.abs();
-        float scaleX = targetScale.getX() - (diff / 600);
-        float scaleY = targetScale.getY() - (diff / 600);
-        scale.set(Math.max(scaleX, 0), Math.max(scaleY, 0));
+//        Axis2D diffPosition = targetPosition.diff(physics.position);
+//        Axis2D forceToTarget = diffPosition.scale(0.1f);
+        physics.accel.add(physics.velocity.scale(-0.07f));
+//        Axis2D forceResistance = physics.velocity.scale(0.07f);
+//        physics.accel.set(forceToTarget.diff(forceResistance));
+//
+//        // 0 -> targetScale
+//        // r -> 0.5
+//        float diff = diffPosition.abs();
+//        float scaleX = targetScale.getX() - (diff / 600);
+//        float scaleY = targetScale.getY() - (diff / 600);
+//        scale.set(Math.max(scaleX, 0), Math.max(scaleY, 0));
 
 
         physics.step();
     }
+
+    public float getRadius() {
+        return targetScale.getX() * 200f;
+    }
+
+    public boolean isHit(EntityModel em) {
+        return distance(em) < getRadius() + em.getRadius();
+    }
+
+    public float distance(EntityModel em) {
+        return this.physics.position.diff(em.physics.position).abs();
+    }
+
+    public boolean visible;
 }
